@@ -45,7 +45,7 @@ jobs:
             gcloud -q app deploy app.yaml --promote
   production:
     docker:
-      - image: circleci/elixir:1.7.1
+      - image: hoarf/elixir:1.7.1
         environment:
           MIX_ENV: prod
           GCLOUD_PROJECT: birdcall-production

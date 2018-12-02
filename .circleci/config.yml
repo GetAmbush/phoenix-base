@@ -1,0 +1,89 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: hoarf/elixir:1.7.1
+        environment:
+          MIX_ENV: test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+      - image: postgres:latest
+    working_directory: ~/Birdcall
+    steps:
+      - checkout
+      - run: mix local.hex --force
+      - run: mix local.rebar --force
+      - run: mix do deps.get, compile
+      - run: mix test --cover
+      - run: mix credo -a
+  staging:
+    docker:
+      - image: circleci/elixir:1.7.1
+        environment:
+          MIX_ENV: staging
+          GCLOUD_PROJECT: erudite-scarab-211916
+    working_directory: ~/Birdcall
+    steps:
+      - checkout
+      - run: mix local.hex --force
+      - run: mix local.rebar --force
+      - run: mix do deps.get, compile
+      - deploy:
+          name: Deploy Staging
+          command: |
+            sed -i "s|ENV_VAR_MIX_ENV|$STAGING_MIX_ENV|g" app.yaml
+            sed -i "s|ENV_VAR_PG_USER|$STAGING_PG_USER|g" app.yaml
+            sed -i "s|ENV_VAR_PG_PASSWORD|$STAGING_PG_PASSWORD|g" app.yaml
+            sed -i "s|ENV_VAR_PG_DATABASE|$STAGING_PG_DATABASE|g" app.yaml
+            sed -i "s|ENV_VAR_PG_SOCKET_PATH|$STAGING_PG_SOCKET_PATH|g" app.yaml
+            sed -i "s|ENV_VAR_CLOUD_SQL_INSTANCES|$STAGING_CLOUD_SQL_INSTANCES|g" app.yaml
+            MIX_ENV=staging mix release --env=staging
+            echo $STAGING_DEPLOY_SECRET | base64 --decode > ${HOME}/deploy_secret.json
+            gcloud --quiet components update app
+            gcloud auth activate-service-account --key-file ${HOME}/deploy_secret.json
+            gcloud config set project $GCLOUD_PROJECT
+            gcloud -q app deploy app.yaml --promote
+  production:
+    docker:
+      - image: circleci/elixir:1.7.1
+        environment:
+          MIX_ENV: prod
+          GCLOUD_PROJECT: birdcall-production
+    working_directory: ~/Birdcall
+    steps:
+      - checkout
+      - run: mix local.hex --force
+      - run: mix local.rebar --force
+      - run: mix do deps.get, compile
+      - deploy:
+          name: Deploy production
+          command: |
+            sed -i "s|ENV_VAR_MIX_ENV|$PRODUCTION_MIX_ENV|g" app.yaml
+            sed -i "s|ENV_VAR_PG_USER|$PRODUCTION_PG_USER|g" app.yaml
+            sed -i "s|ENV_VAR_PG_PASSWORD|$PRODUCTION_PG_PASSWORD|g" app.yaml
+            sed -i "s|ENV_VAR_PG_DATABASE|$PRODUCTION_PG_DATABASE|g" app.yaml
+            sed -i "s|ENV_VAR_PG_SOCKET_PATH|$PRODUCTION_PG_SOCKET_PATH|g" app.yaml
+            sed -i "s|ENV_VAR_CLOUD_SQL_INSTANCES|$PRODUCTION_CLOUD_SQL_INSTANCES|g" app.yaml
+            MIX_ENV=prod mix release --env=prod
+            echo $PRODUCTION_DEPLOY_SECRET | base64 --decode > ${HOME}/deploy_secret.json
+            gcloud --quiet components update app
+            gcloud auth activate-service-account --key-file ${HOME}/deploy_secret.json
+            gcloud config set project $GCLOUD_PROJECT
+            gcloud -q app deploy app.yaml --promote
+workflows:
+  version: 2
+  workflow:
+    jobs:
+      - build
+      - staging:
+          requires:
+            - build
+          filters:
+            branches:
+              only: master
+      - production:
+          requires:
+            - build
+          filters:
+            branches:
+              only: production

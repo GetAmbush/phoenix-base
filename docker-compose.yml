@@ -1,11 +1,20 @@
-version: '2'
+version: '3.5'
+
 services:
-  app:
-    image: app:latest
-    build: .
-  postgres:
-    image: postgres:9.6
+  web:
+    depends_on:
+      - db
+    image: "app:latest"
+    ports:
+      - "80:4000" # In our .env file above, we chose port 4000
+    env_file:
+      - config/docker.env
+
+  db:
+    image: postgres:9-alpine
+    volumes:
+      - "./volumes/postgres:/var/lib/postgresql/data"
     ports:
       - "5432:5432"
-    environment:
-      POSTGRES_PASSWORD: postgres
+    env_file:
+      - config/docker.env

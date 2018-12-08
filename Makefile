@@ -15,6 +15,4 @@ build: ## Build the Docker image
         -t $(APP_NAME):latest .
 
 run: ## Run the app in Docker
-	docker run --env-file config/docker.env \
-        --expose 4000 -p 4000:4000 \
-        --rm -it $(APP_NAME):latest
+	docker run --env-file config/docker.env --expose 4000 -p 4000:4000 --rm -it $(APP_NAME):latest

@@ -5,7 +5,6 @@ config :app, App.Repo,
   password: System.get_env("DATABASE_PASS"),
   database: System.get_env("DATABASE_NAME"),
   hostname: System.get_env("DATABASE_HOST"),
-  ssl: true,
   pool_size: 15
 
 port = String.to_integer(System.get_env("PORT") || "8080")
